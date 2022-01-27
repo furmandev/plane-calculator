@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <link href="mdb.dark.min.css" rel="stylesheet">
+  <title>Airplane/Car Fatality Calculator</title>
+  <link id="icon" rel="icon"
+    href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✈️</text></svg>">
+</head>
+
+<body
+  style="padding: 1rem; display: flex; flex-direction: column; height: max-content; gap: 2em; max-width: max-content; margin: auto;">
+  <input class="form-control" type="number" placeholder="Miles To Airport" oninput="enteredMiles(event)"
+    min="0"></input>
+
+  <h1>🚗 Chance of fatal car accident: <span id="chanceCar">0</span>%</h1>
+  <h1>✈️ Chance of fatal plane accident: <span id="chancePlane">0</span>%</h1>
+
+  <h2 id="result" style="display: none; margin-top: auto;">You are <span id="moreLikely">0</span> times more likely to
+    die <span id="fatalReason">on the way to the airport.</span></h2>
+
+</body>
+
+<script>
+  const PERCENT_DECIMALS = 7;
+
+  // https://afdc.energy.gov/data/10315
+  const totalMilesDriven = 3.23 * 10 ** 12;
+
+  // https://www.statista.com/statistics/191499/vehicle-crashes-by-severity-in-the-united-states-since-1991/
+  const fatalCarAccidents = 33.24 * 1000;
+
+  // https://www.statista.com/statistics/564769/airline-industry-number-of-flights/#:~:text=The%20number%20of%20flights%20performed,reached%2038.9%20million%20in%202019.
+  const flightsTaken = 38.9 * 10 ** 6;
+
+  // https://en.wikipedia.org/wiki/List_of_accidents_and_incidents_involving_commercial_aircraft#2019
+  const fatalPlaneCrashes = 8;
+
+  const fatalAccidentsPerMile = fatalCarAccidents / totalMilesDriven;
+  const fatalCrashesPerFlight = fatalPlaneCrashes / flightsTaken;
+
+  const chanceOfFatalPlaneAccident = fatalCrashesPerFlight;
+
+  document.getElementById('chancePlane').textContent = (chanceOfFatalPlaneAccident * 100).toFixed(PERCENT_DECIMALS);
+
+  function enteredMiles(e) {
+    const milesToAirport = e.target.value;
+
+    const chanceOfFatalCarAccident = fatalAccidentsPerMile * milesToAirport;
+
+    const planeMoreLikely = chanceOfFatalPlaneAccident > chanceOfFatalCarAccident;
+
+    document.getElementById('chanceCar').textContent = (chanceOfFatalCarAccident * 100).toFixed(PERCENT_DECIMALS);
+
+    document.getElementById('moreLikely').textContent = (planeMoreLikely ? (chanceOfFatalPlaneAccident / chanceOfFatalCarAccident) : (chanceOfFatalCarAccident / chanceOfFatalPlaneAccident)).toFixed(2);
+
+    document.getElementById('fatalReason').textContent = planeMoreLikely ? 'on the plane ✈️' : 'in the car 🚗';
+
+    document.getElementById('icon').setAttribute('href', `data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>${planeMoreLikely ? '✈️' : '🚗'}</text></svg>`);
+
+    document.getElementById('result').style.display = milesToAirport > 0 ? 'block' : 'none';
+  }
+
+</script>
+
+
+</html>

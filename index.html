@@ -9,60 +9,191 @@
   <title>Airplane/Car Fatality Calculator</title>
   <link id="icon" rel="icon"
     href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>✈️</text></svg>">
+  <style>
+    .one-in {
+      display: block;
+      text-align: right;
+      font-size: 0.5em;
+      opacity: 0.75;
+    }
+
+    .assumptions-btn {
+      background: none;
+      border: none;
+      color: inherit;
+      font: inherit;
+      font-size: 0.6em;
+      vertical-align: super;
+      padding: 0 0.15em;
+      cursor: help;
+    }
+
+    #assumptions {
+      background: #111;
+      color: #eee;
+      border: none;
+      border-radius: 6px;
+      padding: 1rem 1.25rem;
+      width: 320px;
+      max-width: 90vw;
+      max-height: 80vh;
+      overflow-y: auto;
+      font-size: 0.8rem;
+      line-height: 1.5;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+    }
+
+    #assumptions::backdrop {
+      background: rgba(0, 0, 0, 0.6);
+    }
+
+    #assumptions ul {
+      margin: 0;
+      padding-left: 1.1rem;
+    }
+
+    #assumptions form {
+      margin: 0.75rem 0 0;
+      text-align: right;
+    }
+
+    #assumptions button {
+      background: #333;
+      color: #eee;
+      border: none;
+      border-radius: 4px;
+      padding: 0.3rem 0.9rem;
+      cursor: pointer;
+    }
+  </style>
 </head>
 
 <body
-  style="padding: 1rem; display: flex; flex-direction: column; height: max-content; gap: 2em; max-width: max-content; margin: auto;">
-  <input class="form-control" type="number" placeholder="Miles To Airport" oninput="enteredMiles(event)"
-    min="0"></input>
+  style="padding: 1rem; padding-bottom: 3rem; display: flex; flex-direction: column; height: max-content; gap: 2em; max-width: max-content; margin: auto;">
+  <input id="milesInput" class="form-control" type="number" placeholder="Miles To Airport" oninput="recalculate()"
+    min="0" style="margin-top: 2rem; font-size: 1.5rem; padding: 0.75rem 1rem;"></input>
 
-  <h1>🚗 Chance of fatal car accident: <span id="chanceCar">0</span>%</h1>
-  <h1>✈️ Chance of fatal plane accident: <span id="chancePlane">0</span>%</h1>
+  <h1>🚗 Chance of fatal car accident: <span id="chanceCar">0</span>% <span class="one-in" id="oneInCar"></span></h1>
+  <h1>✈️ Chance of fatal plane accident: <span id="chancePlane">0</span>% <span class="one-in" id="oneInPlane"></span></h1>
 
-  <h2 id="result" style="display: none; margin-top: auto;">You are <span id="moreLikely">0</span> times more likely to
-    die <span id="fatalReason">on the way to the airport.</span></h2>
+  <h2 id="result" style="display: none; margin-top: auto;"><span id="resultIcon">🚗</span> You are <span id="moreLikely">0</span> times more likely to
+    die <span id="fatalReason">on the way to the airport.</span><button class="assumptions-btn" type="button"
+      aria-label="Show assumptions" onclick="document.getElementById('assumptions').showModal()">*</button>
+  </h2>
+
+  <dialog id="assumptions">
+    <ul>
+      <li>This compares one drive with one flight - not a round trip.</li>
+      <li>Plane risk is a flat per-flight rate from US airline data (2013-2024, cargo and charter flights
+        included). A short hop and a cross-country flight count the same.</li>
+      <li>Car risk is the average per-mile rate for US passenger vehicles (2023). Your actual route, weather,
+        and driving aren't factored in.</li>
+      <li>"Fatal" means the accident killed someone - not necessarily you. Most of the fatal plane accidents
+        in this data killed no passengers at all (only crew or ground workers), so if anything, flying is
+        even safer than shown.</li>
+      <li>The car side counts deaths while the plane side counts accidents, which slightly overstates the
+        car risk too.</li>
+    </ul>
+    <form method="dialog"><button>Close</button></form>
+  </dialog>
+
+  <footer
+    style="position: fixed; bottom: 0; left: 0; width: 100%; text-align: center; padding: 0.5rem 0; font-size: 0.7rem; background: inherit;">
+    Sources:
+    <a href="https://crashstats.nhtsa.dot.gov/Api/Public/ViewPublication/813723" target="_blank" rel="noopener">NHTSA (2023 passenger vehicle occupant fatalities)</a>,
+    <a href="https://www.fhwa.dot.gov/policyinformation/statistics/2023/vm1.cfm" target="_blank" rel="noopener">FHWA (2023 vehicle miles traveled)</a>,
+    <a href="https://www.bts.gov/content/us-air-carrier-safety-data" target="_blank" rel="noopener">BTS/NTSB (2013-2024 US air carrier accidents)</a>
+  </footer>
 
 </body>
 
 <script>
   const PERCENT_DECIMALS = 7;
 
-  // https://afdc.energy.gov/data/10315
-  const totalMilesDriven = 3.23 * 10 ** 12;
+  // US total vehicle miles traveled, 2023 - https://www.fhwa.dot.gov/policyinformation/statistics/2023/vm1.cfm
+  const totalMilesDriven = 3246817 * 10 ** 6;
 
-  // https://www.statista.com/statistics/191499/vehicle-crashes-by-severity-in-the-united-states-since-1991/
-  const fatalCarAccidents = 33.24 * 1000;
+  // Passenger vehicles (cars & light trucks) were 89% of total VMT in 2023
+  // - NHTSA Traffic Safety Facts, "Passenger Vehicles: 2023 Data"
+  const passengerVehicleMilesDriven = totalMilesDriven * 0.89;
 
-  // https://www.statista.com/statistics/564769/airline-industry-number-of-flights/#:~:text=The%20number%20of%20flights%20performed,reached%2038.9%20million%20in%202019.
-  const flightsTaken = 38.9 * 10 ** 6;
+  // US passenger vehicle occupant fatalities, 2023 (excludes pedestrians,
+  // cyclists, and motorcyclists, who have very different per-mile risk)
+  // - NHTSA Traffic Safety Facts, "Passenger Vehicles: 2023 Data"
+  const passengerVehicleFatalities = 23959;
 
-  // https://en.wikipedia.org/wiki/List_of_accidents_and_incidents_involving_commercial_aircraft#2019
+  // US Part 121 (scheduled + nonscheduled) air carrier departures, 2013-2024
+  // - BTS/NTSB Table 2-9, "U.S. Air Carrier Safety Data"
+  const flightsTaken = 105967 * 10 ** 3;
+
+  // US Part 121 air carrier fatal accidents, 2013-2024 (same 12-year window;
+  // a single year is too noisy since fatal accidents are rare events - e.g.
+  // 2024 alone had zero) - BTS/NTSB Table 2-9, "U.S. Air Carrier Safety Data"
   const fatalPlaneCrashes = 8;
 
-  const fatalAccidentsPerMile = fatalCarAccidents / totalMilesDriven;
+  const fatalAccidentsPerMile = passengerVehicleFatalities / passengerVehicleMilesDriven;
   const fatalCrashesPerFlight = fatalPlaneCrashes / flightsTaken;
+
+  // True probability never actually reaches 100%, however far you travel -
+  // clamp the display so it never rounds up to a misleading "100.0000000%".
+  const MAX_DISPLAY_PERCENT = 100 - 10 ** -PERCENT_DECIMALS;
+
+  function formatPercent(fraction) {
+    return Math.min(fraction * 100, MAX_DISPLAY_PERCENT).toFixed(PERCENT_DECIMALS);
+  }
+
+  // Round to 2 significant figures - the source data doesn't support more
+  function roundSig(x) {
+    const magnitude = 10 ** (Math.floor(Math.log10(x)) - 1);
+    return Math.round(x / magnitude) * magnitude;
+  }
+
+  function formatOneIn(fraction) {
+    if (fraction <= 0) return '';
+    const n = 1 / fraction;
+    for (const [size, unit] of [[1e9, ' billion'], [1e6, ' million']]) {
+      if (n >= size) {
+        const scaled = roundSig(n / size);
+        return `~1 in ${scaled < 10 ? scaled.toFixed(1) : scaled}${unit}`;
+      }
+    }
+    return `~1 in ${roundSig(n).toLocaleString()}`;
+  }
 
   const chanceOfFatalPlaneAccident = fatalCrashesPerFlight;
 
-  document.getElementById('chancePlane').textContent = (chanceOfFatalPlaneAccident * 100).toFixed(PERCENT_DECIMALS);
+  document.getElementById('chancePlane').textContent = formatPercent(chanceOfFatalPlaneAccident);
+  document.getElementById('oneInPlane').textContent = formatOneIn(chanceOfFatalPlaneAccident);
 
-  function enteredMiles(e) {
-    const milesToAirport = e.target.value;
+  function recalculate() {
+    const milesToAirport = Math.max(0, Number(document.getElementById('milesInput').value) || 0);
 
-    const chanceOfFatalCarAccident = fatalAccidentsPerMile * milesToAirport;
+    // Cumulative probability over N independent miles, not a linear p*N
+    // (which has no ceiling and can exceed 100% for large distances).
+    const chanceOfFatalCarAccident = 1 - (1 - fatalAccidentsPerMile) ** milesToAirport;
 
     const planeMoreLikely = chanceOfFatalPlaneAccident > chanceOfFatalCarAccident;
 
-    document.getElementById('chanceCar').textContent = (chanceOfFatalCarAccident * 100).toFixed(PERCENT_DECIMALS);
+    document.getElementById('chanceCar').textContent = formatPercent(chanceOfFatalCarAccident);
+    document.getElementById('oneInCar').textContent = formatOneIn(chanceOfFatalCarAccident);
 
     document.getElementById('moreLikely').textContent = (planeMoreLikely ? (chanceOfFatalPlaneAccident / chanceOfFatalCarAccident) : (chanceOfFatalCarAccident / chanceOfFatalPlaneAccident)).toFixed(2);
 
-    document.getElementById('fatalReason').textContent = planeMoreLikely ? 'on the plane ✈️' : 'in the car 🚗';
+    document.getElementById('fatalReason').textContent = planeMoreLikely ? 'on the plane' : 'in the car';
+    document.getElementById('resultIcon').textContent = planeMoreLikely ? '✈️' : '🚗';
 
     document.getElementById('icon').setAttribute('href', `data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>${planeMoreLikely ? '✈️' : '🚗'}</text></svg>`);
 
     document.getElementById('result').style.display = milesToAirport > 0 ? 'block' : 'none';
   }
+
+  recalculate();
+
+  const assumptionsDialog = document.getElementById('assumptions');
+  assumptionsDialog.addEventListener('click', (event) => {
+    // A click on the ::backdrop targets the dialog element itself
+    if (event.target === assumptionsDialog) assumptionsDialog.close();
+  });
 
 </script>
 
